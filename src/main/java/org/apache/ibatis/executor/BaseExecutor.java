@@ -140,7 +140,7 @@ public abstract class BaseExecutor implements Executor {
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql) throws SQLException {
     ErrorContext.instance().resource(ms.getResource()).activity("executing a query").object(ms.getId());
-    if (closed) {
+    if (closed) {  // 检查当前executor是否关闭
       throw new ExecutorException("Executor was closed.");
     }
     if (queryStack == 0 && ms.isFlushCacheRequired()) {
@@ -148,11 +148,13 @@ public abstract class BaseExecutor implements Executor {
     }
     List<E> list;
     try {
-      queryStack++;
+      queryStack++;  //  查询层次加一
       list = resultHandler == null ? (List<E>) localCache.getObject(key) : null;
       if (list != null) {
+        //  针对调用存储过程的结果处理
         handleLocallyCachedOutputParameters(ms, key, parameter, boundSql);
       } else {
+        //  缓存未命中，从数据库加载数据
         list = queryFromDatabase(ms, parameter, rowBounds, resultHandler, key, boundSql);
       }
     } finally {

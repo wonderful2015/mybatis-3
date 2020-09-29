@@ -27,7 +27,7 @@ import org.apache.ibatis.cache.CacheException;
 public class PerpetualCache implements Cache {
 
   private final String id;
-
+  //  二级缓存，  线程不安全的，为啥还使用HashMap？
   private final Map<Object, Object> cache = new HashMap<>();
 
   public PerpetualCache(String id) {

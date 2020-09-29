@@ -38,6 +38,11 @@ public abstract class BaseDataTest {
   public static final String JPETSTORE_DDL = "org/apache/ibatis/databases/jpetstore/jpetstore-hsqldb-schema.sql";
   public static final String JPETSTORE_DATA = "org/apache/ibatis/databases/jpetstore/jpetstore-hsqldb-dataload.sql";
 
+  public static void main(String[] args) throws Exception{
+
+    createBlogDataSource("application-dev.yml");
+
+  }
   public static UnpooledDataSource createUnpooledDataSource(String resource) throws IOException {
     Properties props = Resources.getResourceAsProperties(resource);
     UnpooledDataSource ds = new UnpooledDataSource();
@@ -75,7 +80,7 @@ public abstract class BaseDataTest {
     }
   }
 
-  public static DataSource createBlogDataSource() throws IOException, SQLException {
+  public static DataSource createBlogDataSource(String s) throws IOException, SQLException {
     DataSource ds = createUnpooledDataSource(BLOG_PROPERTIES);
     runScript(ds, BLOG_DDL);
     runScript(ds, BLOG_DATA);

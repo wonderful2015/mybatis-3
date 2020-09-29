@@ -34,9 +34,11 @@ import org.apache.ibatis.cache.CacheException;
  *
  */
 public class BlockingCache implements Cache {
-
+   //阻塞的超时时长
   private long timeout;
+   // 被装饰的底层对象，一般是PerpetualCache
   private final Cache delegate;
+   // 锁对象集，粒度到key值
   private final ConcurrentHashMap<Object, ReentrantLock> locks;
 
   public BlockingCache(Cache delegate) {
@@ -58,16 +60,16 @@ public class BlockingCache implements Cache {
   public void putObject(Object key, Object value) {
     try {
       delegate.putObject(key, value);
-    } finally {
+    } finally {   // 从数据库读取数据之后放入缓存并释放锁
       releaseLock(key);
     }
   }
 
   @Override
   public Object getObject(Object key) {
-    acquireLock(key);
+    acquireLock(key);   // 根据key获得锁对象，获取锁成功加锁，获取锁失败阻塞一段时间重试
     Object value = delegate.getObject(key);
-    if (value != null) {
+    if (value != null) {  // 从缓存获取数据成功的，要释放锁，没数据继续持有锁
       releaseLock(key);
     }
     return value;
@@ -86,21 +88,38 @@ public class BlockingCache implements Cache {
   }
 
   private ReentrantLock getLockForKey(Object key) {
-    return locks.computeIfAbsent(key, k -> new ReentrantLock());
-  }
+  // 不安全的代码
+   /* ReentrantLock _lock=locks.get(key);
+    if (_lock!=null){
+      return _lock;
+    }
 
+    _lock=new ReentrantLock();
+    locks.put(key,_lock);
+    return _lock;*/
+
+
+    ReentrantLock lock=new ReentrantLock(); //创建锁
+    ReentrantLock previous=locks.putIfAbsent(key,lock);
+    //把新锁添加到locks集合中，如果添加成功使用新锁，添加不成功使用以前的老锁(locks集合中的锁)
+    return previous==null?lock:previous;
+
+    //return locks.computeIfAbsent(key, k -> new ReentrantLock());
+  }
+   //  根据key获得锁对象，获取锁成功加锁，获得锁失败阻塞一段时间重试
   private void acquireLock(Object key) {
+    // 获得锁对象
     Lock lock = getLockForKey(key);
-    if (timeout > 0) {
+    if (timeout > 0) {  // 使用带超时时间的锁
       try {
         boolean acquired = lock.tryLock(timeout, TimeUnit.MILLISECONDS);
-        if (!acquired) {
+        if (!acquired) {  //  如果超时抛出异常
           throw new CacheException("Couldn't get a lock in " + timeout + " for the key " +  key + " at the cache " + delegate.getId());
         }
       } catch (InterruptedException e) {
         throw new CacheException("Got interrupted while trying to acquire lock for key " + key, e);
       }
-    } else {
+    } else {   // 使用不带超时时间的锁
       lock.lock();
     }
   }
